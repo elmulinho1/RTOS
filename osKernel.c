@@ -1,3 +1,11 @@
+/*
+ * osKernel.c
+ *
+ *  Created on: Feb 6, 2020
+ *      Author: elmulinho
+ */
+
+
 #include "osKernel.h"
 #include "stm32f4xx.h"
 
@@ -6,6 +14,7 @@
 #define BUS_FREQ		16000000
 
 #define SYSPRI3			(*((volatile uint32_t* )0xE000ED20))
+#define INTCTRL			(*((volatile uint32_t* )0xE000ED04))
 
 uint32_t mSecPrescaler;
 
@@ -93,4 +102,30 @@ void __attribute__ ((naked)) SysTick_Handler(void) {
 				 "POP		{R4-R11}\n"
 				 "CPSIE		I\n"
 				 "BX		LR\n");
+}
+
+void osThreadYield(void) {
+	SysTick->VAL = 0;
+	INTCTRL = 0x04000000;
+}
+
+void osSemaphoreInit(int32_t* semaphore, int32_t value) {
+	*semaphore = value;
+}
+
+void osSignalSet(int32_t* semaphore) {
+	__disable_irq();
+	*semaphore += 1;
+	__enable_irq();
+}
+
+void osSignalWait(int32_t* semaphore) {
+	__disable_irq();
+	while(*semaphore <= 0) {
+		__disable_irq();
+		osThreadYield();
+		__enable_irq();
+	}
+	*semaphore -= 1;
+	__enable_irq();
 }
